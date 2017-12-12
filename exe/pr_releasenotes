@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+
+require 'pr_releasenotes'
+
+include PrReleasenotes
+
+PrReleasenotes.configure do |config|
+  config.parse_args(ARGV)
+end
+
+ReleaseNotes.new.run

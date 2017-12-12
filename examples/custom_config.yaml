@@ -1,0 +1,23 @@
+#
+# Sample configuration containing custom release notes, categorization and jira support. Assumes
+# a PR template that looks like custom_template.md
+#
+
+# Name of your repo in user/repo format
+repo:
+
+# Release notes parsing options. Note that comments will always get stripped
+
+# Assumes a separate Release Notes section in the PR description
+relnotes_regex: /.*### Release Notes(.*)/m
+relnotes_group: 1 # group to capture from the regex
+
+# Enable categorization
+categorize: true
+
+# Update to your own jira server
+jira_baseurl: 'https://issues.apache.org/jira/browse/'
+
+# Enable pagination
+auto_paginate: true
+
