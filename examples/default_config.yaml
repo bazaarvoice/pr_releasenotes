@@ -1,0 +1,71 @@
+#
+# Sample configuration containing default configuration values
+#
+
+# Name of your repo in user/repo format. Defaults to nil and must be overridden in the yaml or on the cmd line.
+# repo: 
+
+# Release notes will be pulled from PRs merged to this branch. Defaults to master.
+# branch: master
+
+# Version range from which release notes should be gathered
+
+# Extract pull requests starting from this version. Defaults to nil for latest published release. Override if
+# there are no published releases yet.
+# Note: Although this parameter is listed here for completeness, this will likely be specified on the cmd line
+# since its value will vary with each release.
+# start_version:
+
+# Defaults to nil for latest commit. nil will also skip the creation of a github release
+# end_version:
+
+# If all your tags have a common prefix, add that here, and use just the varying suffix as the 
+# start/end versiomn arguments. Defaults to blank.
+# tag_prefix: 
+
+# Short sha uniqueness threshold. Shas shorter than this may collide with other commits. When searching for
+# PRs related to a set of commits, shorter shas means more of them can be added into each query, allowing for
+# fewer calls to github search.
+# min_sha_size: 7
+
+# Whether to include even PRs not matching the relnotes_regex
+# include_all_prs: true
+
+# Finish by posting release notes to github
+# github_release: false
+
+
+# Release notes parsing options. Note that comments will always get stripped
+
+# By default, the entire PR description will be used.
+# relnotes_regex: '/.*/m'
+
+# group to capture from the above regex
+# relnotes_group: 0
+
+
+# Set categorization options
+
+# Set to true to enable categorization
+# categorize: false
+
+# Prefix to use to detect categories in the PR description
+# category_prefix: '^\* '
+
+# PRs without categories will get included into this default category
+# category_default: '<!--99-->Other'
+
+# Add a prefix to the release notes items
+# relnotes_hdr_prefix: '### '
+
+
+# Optional jira url to auto link all strings matching a jira ticket pattern
+# Default to nil to skip auto link
+# jira_baseurl:
+
+
+# !!!CAUTION!!! this will auto paginate github api calls, and potentially overrun your rate limits! Do not try 
+# to get release notes for all history for your project. Limit to no more than 2-3 pages worth of commits per
+# the UI.
+# auto_paginate: false
+
