@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.name          = 'pr_releasenotes'
   spec.version       = PrReleasenotes::VERSION
   spec.version       = "#{spec.version}-#{ENV['TRAVIS_BUILD_NUMBER']}" \
-                        if ENV['TRAVIS'] && PrReleasenotes::VERSION.include?('.pre')
+                        if ENV['TRAVIS']
   spec.authors       = ['arvindth']
   spec.email         = ['arvind.thirunarayanan@bazaarvoice.com']
 
