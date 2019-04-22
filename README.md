@@ -38,7 +38,7 @@ The minimum configuration necessary to run the tool is the repo, github token an
 
     $ pr_releasenotes --repo <user/repo> --token <token> --start <latest_tagged_release>
 
-Additional options can be specified either by pasing a yaml configuration to the included executable:
+Additional options can be specified either by passing a yaml configuration to the included executable:
 
     $ pr_releasenotes --config <config.yaml> --token <token> --start <start_version> --end <end_version> --branch <non-default branch>
 
