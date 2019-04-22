@@ -20,7 +20,7 @@
 # end_version:
 
 # If all your tags have a common prefix, add that here, and use just the varying suffix as the 
-# start/end versiomn arguments. Defaults to blank.
+# start/end version arguments. Defaults to blank.
 # tag_prefix: 
 
 # Short sha uniqueness threshold. Shas shorter than this may collide with other commits. When searching for

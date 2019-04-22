@@ -24,7 +24,7 @@ module PrReleasenotes
 
     end
 
-    def run()
+    def run
       # Infer start version if necessary
       set_start_version
       log.info "Retrieving release notes between #{config.start_version} and #{config.end_version.nil? ? 'now' : config.end_version} on branch #{config.branch}"
@@ -96,7 +96,7 @@ module PrReleasenotes
         commits = git_client.commits_between( config.repo, start_date, end_date, config.branch)
         log.info "Got #{commits.length} commits on #{config.branch} between #{config.start_version}(#{start_date}) and #{config.end_version}(#{end_date})"
       end
-      log.debug "Commits: " + commits.map { |commit| commit.sha}.join(',')
+      log.debug "Commits: " + commits.map(&:sha).join(',')
       commits
     end
 
@@ -184,7 +184,7 @@ module PrReleasenotes
           notes
         }
         notes[config.category_default] << "</p></details>" unless notes[config.category_default].nil?   # Close the collapsible section
-        # Accummulate each category's notes
+        # Accumulate each category's notes
         notes_str << notes.sort.map { |category, note|
           note_str = category.nil? ? "#{config.relnotes_hdr_prefix}#{config.category_default}\r\n" : "#{config.relnotes_hdr_prefix}#{category}\r\n"
           note_str << note

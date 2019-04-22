@@ -123,7 +123,7 @@ module PrReleasenotes
         end
 
         opts.separator ''
-        opts.on('-d', '--debug', 'Enable debug logging') do |branch|
+        opts.on('-d', '--debug', 'Enable debug logging') do
           @log.level = Logger::DEBUG
           @log.debug 'Debug mode enabled'
         end
