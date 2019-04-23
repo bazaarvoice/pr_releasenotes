@@ -1,5 +1,6 @@
 #
-# Sample configuration containing default configuration values
+# Sample configuration containing default values.
+# At least one of the following options must be uncommented to use this configuration file
 #
 
 # Name of your repo in user/repo format. Defaults to nil and must be overridden in the yaml or on the cmd line.
@@ -8,19 +9,19 @@
 # Release notes will be pulled from PRs merged to this branch. Defaults to master.
 # branch: master
 
-# Version range from which release notes should be gathered
+# Tag range from which release notes should be gathered
 
-# Extract pull requests starting from this version. Defaults to nil for latest published release. Override if
+# Extract pull requests starting from this tag. Defaults to nil for latest published release. Override if
 # there are no published releases yet.
 # Note: Although this parameter is listed here for completeness, this will likely be specified on the cmd line
 # since its value will vary with each release.
-# start_version:
+# start_tag:
 
 # Defaults to nil for latest commit. nil will also skip the creation of a github release
-# end_version:
+# end_tag:
 
 # If all your tags have a common prefix, add that here, and use just the varying suffix as the 
-# start/end version arguments. Defaults to blank.
+# start/end tag arguments. Defaults to blank.
 # tag_prefix: 
 
 # Short sha uniqueness threshold. Shas shorter than this may collide with other commits. When searching for
@@ -37,7 +38,9 @@
 
 # Release notes parsing options. Note that comments will always get stripped
 
-# By default, the entire PR description will be used.
+# By default, only the PR titles will be used, so match nothing from the description
+# relnotes_regex: '/.\A/'
+# To use the entire PR description instead
 # relnotes_regex: '/.*/m'
 
 # group to capture from the above regex
@@ -56,7 +59,7 @@
 # category_default: '<!--99-->Other'
 
 # Add a prefix to the release notes items
-# relnotes_hdr_prefix: '### '
+# relnotes_hdr_prefix: '* '
 
 
 # Optional jira url to auto link all strings matching a jira ticket pattern

@@ -4,6 +4,10 @@ require "pr_releasenotes/configuration"
 # post to github releases
 module PrReleasenotes
 
+  def self.run
+    ReleaseNotes.new.run
+  end
+
   class ReleaseNotes
 
     require 'octokit'
@@ -25,76 +29,100 @@ module PrReleasenotes
     end
 
     def run
-      # Infer start version if necessary
-      set_start_version
-      log.info "Retrieving release notes between #{config.start_version} and #{config.end_version.nil? ? 'now' : config.end_version} on branch #{config.branch}"
-      # Get commits between versions
-      commits_for_versions = get_commits_for_versions
+      # Infer start tag if necessary
+      set_start_tag
+      log.info "Retrieving release notes between #{config.start_tag} and #{config.end_tag.nil? ? 'now' : config.end_tag} on branch #{config.branch}"
+      # First get a list of all tags on github
+      get_all_tags
+      # Get commits between start and end tags
+      commits_for_tags = get_commits_for_tags
       # Get merged PRs for those commits
-      prs = get_prs_for_commits(commits_for_versions)
+      prs = get_prs_for_commits(commits_for_tags)
       # Get release notes from those PRs
       notes_by_pr = get_releasenotes_for_prs(prs)
       # Convert to a single string
       notes_str = get_notes_str(notes_by_pr)
-      log.info "Release Notes:\n\n#{notes_str}"
       # Optionally post to github as a new or updated release
-      post_to_github(notes_str) if config.github_release
+      if config.github_release
+        post_to_github(notes_str)
+      else
+        log.info "Release Notes:\n\n#{notes_str}"
+      end
     end
 
-    def set_start_version
-      if config.start_version.nil?
-        # If start version isn't set, try to infer from the latest github release
+    def get_all_tags
+      @all_tags = git_client.tags(config.repo)
+    end
+
+    def set_start_tag
+      if config.start_tag.nil?
+        # If start tag isn't set, try to infer from the latest github release
+
+        # First get the current tag or branch
+        tag_or_branch = config.end_tag.nil? ? config.branch : config.end_tag
         begin
           releases = git_client.releases(config.repo)
                          .sort_by { |release| release[:created_at]}.reverse # order by create date, newest first
           release = releases.find { |release|
             unless release[:draft]
-              # is a pre-release or published release, so check if this release is an ancestor of the current branch
-              # "diverged" indicates it was on a different branch & "ahead" indicates it's after the
-              # specified end_version, so neither can be used as a start_version
-              # "behind" indicates it's an ancestor and can be used as a start_version,
-              git_client.compare(config.repo, config.branch, release[:tag_name])[:status] == 'behind'
+              # is a pre-release or published release, so check if this release is an ancestor of the end_tag
+              # or the current branch
+
+              # "diverged" indicates it was on a different branch & "behind" indicates it's after the
+              # specified end_tag, so neither can be used as a start_tag
+              # "ahead" indicates it's an ancestor and can be used as a start_tag
+              git_client.compare(config.repo, release[:tag_name], tag_or_branch)[:status] == 'ahead'
             end
           }
-          config.start_version = release[:tag_name].sub /#{config.tag_prefix}/, ''
+          config.start_tag = release[:tag_name].sub /#{config.tag_prefix}/, ''
+        rescue Octokit::Unauthorized => e
+          throw e
         rescue StandardError
-          log.error "No published releases found in #{config.repo} for branch #{config.branch}. Specify a start version explicitly."
+          log.error "No published releases found in #{config.repo} on or before #{tag_or_branch}. Either publish a release first, or specify a start tag or commit sha explicitly."
           exit 1
         end
       end
     end
 
-    def get_date_for_version(tags, version)
-      # From the tags, find the tag for the specified version and get its sha
-      tagname = "#{config.tag_prefix}#{version}"
-      tag = tags.select {|tag| tag.name == tagname }.shift
-      tag.nil? and log.error "No commit found with tag name #{tagname}\n" and exit 1
-      tag_sha = tag[:commit][:sha]
+    def get_date_for_tag(tags, tag_str)
+      tagname = "#{config.tag_prefix}#{tag_str}"
+      unless tags.empty?
+        # From existing tags, find the tag for the specified tag_str and get its sha
+        tag = tags.select {|tag| tag.name == tagname }.shift
+        sha = tag[:commit][:sha] unless tag.nil?
+      end
 
-      # get the commit for that sha, and the date for that commit.
-      commit = git_client.commit( config.repo, tag_sha )
+      unless sha
+        # No tags exist, or specified tag_str wasn't found. Try treating the tag_str as a commit sha
+        sha = tag_str
+      end
+
+      begin
+        # get the commit for that sha, and the date for that commit.
+        commit = git_client.commit( config.repo, sha )
+      rescue Octokit::Error
+        log.error "No commit found with tag name #{tagname} or sha #{tag_str}\n" and exit 1
+      end
       commit[:commit][:author][:date]
     end
 
-    def get_commits_for_versions
+    def get_commits_for_tags
 
       # The github api does not directly support getting a list of commits since a tag was applied.
       # To work around this, we instead:
 
-      # get a list of tags
-      tags = git_client.tags(config.repo)
-      # get the corresponding date for the tag corresponding to the start version
-      start_date = get_date_for_version tags, config.start_version
-      if config.end_version.nil?
+      # get the corresponding date for the tag corresponding to the start tag
+      start_date = get_date_for_tag @all_tags, config.start_tag
+      if config.end_tag.nil?
         # and get a list of commits since the start_date on the configured branch
-        commits = git_client.commits_since( config.repo, start_date, config.branch)
-        log.info "Got #{commits.length} commits on #{config.branch} between #{config.start_version}(#{start_date}) and now"
+        commits = git_client.commits_since config.repo, start_date, config.branch
+        log.info "Got #{commits.length} commits on #{config.branch} between #{config.start_tag}(#{start_date}) and now"
       else
-        # and for the end version if not nil
-        end_date = get_date_for_version tags, config.end_version
+        # and the date for the end tag if not nil
+        end_date = get_date_for_tag @all_tags, config.end_tag
         # and get a list of commits between the start/end dates on the configured branch
-        commits = git_client.commits_between( config.repo, start_date, end_date, config.branch)
-        log.info "Got #{commits.length} commits on #{config.branch} between #{config.start_version}(#{start_date}) and #{config.end_version}(#{end_date})"
+        commits = git_client.commits_between config.repo, start_date, end_date, config.branch
+        log.info "Got #{commits.length} commits on #{config.branch} between #{config.start_tag}(#{start_date}) and #{config.end_tag}(#{end_date})"
       end
       log.debug "Commits: " + commits.map(&:sha).join(',')
       commits
@@ -131,8 +159,10 @@ module PrReleasenotes
         unless pr[:body].nil?
           # Release notes exist for this PR, so do some cleanup
           body = pr[:body].strip.slice(config.relnotes_regex, config.relnotes_group)
-          body.gsub! /^<!--.+?(?=-->)-->/m, '' # strip off (multiline) comments
-          body.gsub! /^\r?\n/, ''             # and empty lines
+          unless body.nil?
+            body.gsub! /^<!--.+?(?=-->)-->/m, '' # strip off (multiline) comments
+            body.gsub! /^\r?\n/, ''             # and empty lines
+          end
         end
         # For PRs without release notes, add just the title
         notes << {:title => pr[:title], :date => pr[:closed_at], :prnum => pr[:number], :body => body}
@@ -146,14 +176,14 @@ module PrReleasenotes
         # Regex: negative lookbehind(?<!...) for jira_prefix or beginning of link markdown,
         # followed by jira ticket pattern, followed by negative lookahead(?!...) for end of
         # link markdown
-        #              |   neg lookbehind    |  | tkt pattern |  |neg lookahead|
+        #              |        neg lookbehind        |  | tkt pattern |  |neg lookahead |
         notes_str.gsub!(/(?<!#{config.jira_baseurl}|\[)\b([A-Z]{2,}-\d+)\b(?![^\[\]]*\]\()/, "[\\1](#{config.jira_baseurl}\\1)")
       end
       notes_str
     end
 
     def get_notes_str(notes_by_pr)
-      notes_str = "Changes since #{config.tag_prefix}#{config.start_version}:\r\n"
+      notes_str = "Changes since #{config.tag_prefix}#{config.start_tag}:\r\n"
       if config.categorize
         # Categorize the notes, using the regex as the category names
         notes = notes_by_pr.reduce({}) { | notes, pr_note |
@@ -192,25 +222,38 @@ module PrReleasenotes
       else
         # No categorization required, use notes as is
         notes_str << notes_by_pr.reduce("") { | str, note |
-          str << "#{config.relnotes_hdr_prefix}#{note[:title]} [##{note[:prnum]}](https://github.com/#{config.repo}/pull/#{note[:prnum]} \"Merged #{note[:date]}\")\r\n#{note[:body]}\r\n"
+          str << "#{config.relnotes_hdr_prefix}#{note[:title]} [##{note[:prnum]}](https://github.com/#{config.repo}/pull/#{note[:prnum]} \"Merged #{note[:date]}\")\r\n"
+          str << "#{note[:body]}\r\n" unless note[:body].nil? || note[:body].empty?
+          str
         }
       end
       jiraize notes_str
     end
 
     def post_to_github(notes_str)
-      unless config.end_version.nil?
-        tag_name = "#{config.tag_prefix}#{config.end_version}"
+      unless config.end_tag.nil?
+        tag_name = "#{config.tag_prefix}#{config.end_tag}"
+        if @all_tags.find { |tag| tag[:name] == tag_name }.nil?
+          raise "#{tag_name} is not a valid end_tag. Releases can only be created or updated for existing end_tags."
+        end
         begin
           release = git_client.release_for_tag(config.repo, tag_name)
           # Found existing release, so update it
-          log.info "Found existing #{release.draft? ? 'draft ' : ''}#{release.prerelease? ? 'pre-' : ''}release with tag #{tag_name} at #{release.html_url} with body: #{release.body}"
-          release = git_client.update_release(release.url, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => true, :target_commitish => config.branch })
-          log.info "Updated pre-release #{release.id} at #{release.html_url} with body #{notes_str}"
+          log.info "Found existing #{release.draft? ? 'draft ' : ''}#{release.prerelease? ? 'pre-' : ''}release with tag #{tag_name} at #{release.html_url}#{release.body.nil? || release.body.empty? ? '' : " with body: #{release.body}"}"
+          begin
+            release = git_client.update_release(release.url, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => true })
+            log.info "Updated pre-release #{release.id} at #{release.html_url} with body\n\n #{notes_str}"
+          rescue Octokit::NotFound
+            raise "Unable to post release to github. Ensure your token has the right permissions."
+          end
         rescue Octokit::NotFound
-          # no existing release, so create a new one
-          release = git_client.create_release(config.repo, tag_name, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => true, :target_commitish => config.branch })
-          log.info "Created pre-release #{release.id} at #{release.html_url} with body #{notes_str}"
+          # no existing release, so try create a new one for this end_tag
+          begin
+            release = git_client.create_release(config.repo, tag_name, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => true })
+            log.info "Created pre-release #{release.id} at #{release.html_url} with body\n\n #{notes_str}"
+          rescue Octokit::NotFound
+            raise "Unable to post release to github. Ensure your token has the right permissions."
+          end
         end
       end
     end
