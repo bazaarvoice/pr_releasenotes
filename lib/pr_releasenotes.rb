@@ -128,9 +128,9 @@ module PrReleasenotes
     def get_releasenotes_for_prs(prs)
       notes = prs.reduce([]) { |notes, pr|
         # Get release notes section
-        body = pr[:body].strip.slice(config.relnotes_regex, config.relnotes_group)
-        unless body.nil?
+        unless pr[:body].nil?
           # Release notes exist for this PR, so do some cleanup
+          body = pr[:body].strip.slice(config.relnotes_regex, config.relnotes_group)
           body.gsub! /^<!--.+?(?=-->)-->/m, '' # strip off (multiline) comments
           body.gsub! /^\r?\n/, ''             # and empty lines
         end
