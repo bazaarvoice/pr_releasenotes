@@ -21,7 +21,7 @@ module PrReleasenotes
     require 'to_regexp'
     require "pr_releasenotes/version"
 
-    attr_accessor :repo, :token, :tag_prefix, :min_sha_size, :start_version, :end_version,
+    attr_accessor :repo, :token, :tag_prefix, :min_sha_size, :start_tag, :end_tag,
                   :branch, :include_all_prs, :github_release, :relnotes_group,
                   :categorize, :category_prefix, :category_default, :relnotes_hdr_prefix,
                   :jira_baseurl, :auto_paginate, :log
@@ -39,9 +39,9 @@ module PrReleasenotes
       @tag_prefix = ''
       # Short sha uniqueness threshold. Shas shorter than this may collide with other commits
       @min_sha_size = 7
-      # Version range from which release notes should be gathered
-      @start_version = nil  # nil for latest released version
-      @end_version = nil    # nil for latest commit. nil will skip the creation of a github release
+      # Tag range from which release notes should be gathered
+      @start_tag = nil  # nil for latest released tag
+      @end_tag = nil    # nil for latest commit. nil will skip the creation of a github release
       # Release notes will be pulled from PRs merged to this branch
       @branch = 'master'
       # Whether to include even PRs without explicit release notes
@@ -50,8 +50,8 @@ module PrReleasenotes
       @github_release = false
 
       # Release notes parsing options. Note that comments will always get stripped
-      # Use .* with group 0 to use the entire PR description as the notes
-      @relnotes_regex = /.*/m
+      # By default, only the PR titles will be used, so match nothing from the description
+      @relnotes_regex = /.\A/
       @relnotes_group = 0 # group to capture from the regex
 
       # Set categorization options
@@ -60,7 +60,7 @@ module PrReleasenotes
       # PRs without categories will get included into this default category
       @category_default = '<!--99-->Other'
       # Add a prefix to the release notes items
-      @relnotes_hdr_prefix = '### '
+      @relnotes_hdr_prefix = '* '
 
       # Optional jira url to auto link all strings matching a jira ticket pattern
       # Set to nil to skip auto link
@@ -88,13 +88,17 @@ module PrReleasenotes
 
         opts.separator ''
         opts.on('-c', '--config <config.yaml>', 'Yaml configuration') do |config|
-          YAML.load_file(config).each do |k, v|
-            begin
-              # Try calling public setter for this option
-              public_send("#{k}=",  v)
-            rescue NoMethodError => e
-              raise "#{e.message} caused by (#{config}) Invalid key '#{k}'"
+          begin
+            YAML.load_file(config).each do |k, v|
+              begin
+                # Try calling public setter for this option
+                public_send("#{k}=",  v)
+              rescue NoMethodError => e
+                raise "#{e.message} caused by (#{config}) Invalid key '#{k}'"
+              end
             end
+          rescue StandardError => e
+            raise "Unable to parse #{config} caused by #{e.message}"
           end
         end
 
@@ -107,11 +111,11 @@ module PrReleasenotes
         end
 
         opts.separator ''
-        opts.on('-s', '--start  <version>', 'Get release notes from this version tag. (Default: latest release)') do |version|
-          @start_version = version
+        opts.on('-s', '--start  <tag|sha>', 'Get release notes starting from this tag or sha. (Default: latest release)') do |tag|
+          @start_tag = tag
         end
-        opts.on('-e', '--end    <version>', 'Get release notes till this version tag. (Default: latest commit, skips creating github release)') do |version|
-          @end_version = version
+        opts.on('-e', '--end    <tag|sha>', 'Get release notes till this tag or sha. (Default: latest commit, skips creating github release)') do |tag|
+          @end_tag = tag
         end
         opts.on('-b', '--branch <branchname>', 'Use pull requests to this branch. (Default: master)') do |branch|
           @branch = branch
@@ -138,6 +142,10 @@ module PrReleasenotes
       end
 
       opt_parser.parse!(args)
+      if @github_release && @end_tag.nil?
+        log.error "Cannot post to github without an end tag. Specify an end_tag or skip posting to github."
+        exit 1
+      end
     end
 
   end

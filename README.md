@@ -10,11 +10,11 @@ will generate release notes from your latest release tag to the tip of the maste
 
 ## Why this tool vs others
 
-There are quite a few online tools for generating release notes based on github history, but all the ones I've found rely on commit messages. This makes them inflexible, since it would require rewriting commit history in order to make any changes to the generated notes.
+There are quite a few online tools for generating release notes based on github history, but all the ones I've found rely on commit messages. This makes them inflexible, since it would require rewriting commit history in order to make any changes to the generated notes. In addition, using commit messages forces irrelevant information such as `fixed typo`, `reverted incorrect commit`, and `updated tests/docs` into the release notes.
 
-This tool uses the pull request descriptions, so the release notes for any version can be updated at any time by simply updating the corresponding pull request's description and rerunning this tool.
+This tool uses pull request descriptions, so the release notes for any version can be updated at any time by simply updating the corresponding pull request's description and rerunning this tool. In addition, pull request descriptions can have a separate brief and focused section to expose only the necessary information into the release notes. 
 
-Secondly, this tool provides the additional option to post the release notes back to the github releases page.
+Finally, this tool provides the additional option to post the release notes back to the github releases page.
 
 ## Installation
 
@@ -34,20 +34,18 @@ Or install it yourself as:
 
 ## Usage
 
-The minimum configuration necessary to run the tool is the repo, github token and a start release tag:
+The minimum configuration necessary to run the tool is the repo, github token and a starting tag or commit sha:
 
-    $ pr_releasenotes --repo <user/repo> --token <token> --start <latest_tagged_release>
+    $ pr_releasenotes --repo <user/repo> --token <token> --start <start_tag|sha>
 
-Additional options can be specified either by passing a yaml configuration to the included executable:
+Additional options can be specified either by passing a yaml configuration to the executable:
 
-    $ pr_releasenotes --config <config.yaml> --token <token> --start <start_version> --end <end_version> --branch <non-default branch>
+    $ pr_releasenotes --config <config.yaml> --token <token> --start <start_tag|sha> --end <end_tag|sha> --branch <non-default branch>
 
 or by invoking the gem directly from ruby code:
 
 ```ruby
 require 'pr_releasenotes'
-
-include PrReleasenotes
 
 PrReleasenotes.configure do |config|
   config.repo('user/repo')
@@ -55,7 +53,7 @@ PrReleasenotes.configure do |config|
   config.parse_args(ARGV)
 end
 
-ReleaseNotes.new.run
+PrReleasenotes.run
 ```
 
 Get a brief usage summary by running
@@ -64,6 +62,27 @@ Get a brief usage summary by running
 
 
 See the [examples folder](examples) for some sample yaml configuration files.
+
+### Running as part of a release build
+
+This tool can be invoked right after a release build to automatically add release notes to a newly created release.
+
+#### Regular releases
+
+For regular releases where a previous release already exists, and a new release is being created, this tool can be invoked after the release is built by using the following form:
+
+    $ pr_releasenotes --repo <user/repo> --token <token> --end <current_release_tag>
+    
+The tool will set the start_tag to the latest tagged release prior to the current one and generate release notes from that release to the current one.
+
+#### Initial release
+
+For the initial release from a repo, there is no previous release, so the tool must be run with an explicit start sha or tag:
+
+    $ pr_releasenotes --repo <user/repo> --token <token> --start <commit_sha> --end <current_release_tag>
+ 
+Both the `--start` and `--end` parameters support sha values as well as tags, so release notes can be generated between any two tags or commits.
+
 
 ### Github token permissions
 

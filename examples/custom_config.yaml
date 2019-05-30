@@ -4,7 +4,7 @@
 #
 
 # Name of your repo in user/repo format
-repo:
+# repo:
 
 # Release notes parsing options. Note that comments will always get stripped
 
@@ -14,6 +14,7 @@ relnotes_group: 1 # group to capture from the regex
 
 # Enable categorization
 categorize: true
+relnotes_hdr_prefix: '### '
 
 # Update to your own jira server
 jira_baseurl: 'https://issues.apache.org/jira/browse/'
