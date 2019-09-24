@@ -22,7 +22,7 @@ module PrReleasenotes
     require "pr_releasenotes/version"
 
     attr_accessor :repo, :token, :tag_prefix, :min_sha_size, :start_tag, :end_tag,
-                  :branch, :include_all_prs, :github_release, :relnotes_group,
+                  :branch, :include_all_prs, :github_release, :prerelease, :relnotes_group,
                   :categorize, :category_prefix, :category_default, :relnotes_hdr_prefix,
                   :jira_baseurl, :auto_paginate, :log
 
@@ -48,6 +48,8 @@ module PrReleasenotes
       @include_all_prs = true
       # Finish by posting release notes to github
       @github_release = false
+      # Release notes are defaulted to be prerelease
+      @prerelease = true
 
       # Release notes parsing options. Note that comments will always get stripped
       # By default, only the PR titles will be used, so match nothing from the description
@@ -124,6 +126,9 @@ module PrReleasenotes
         opts.separator ''
         opts.on('-p', '--post-to-github', 'Create/update release on github') do
           @github_release = true
+        end
+        opts.on('-f', '--full-release', 'Create a full release') do
+          @prerelease = false
         end
 
         opts.separator ''
