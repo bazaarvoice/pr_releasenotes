@@ -241,16 +241,16 @@ module PrReleasenotes
           # Found existing release, so update it
           log.info "Found existing #{release.draft? ? 'draft ' : ''}#{release.prerelease? ? 'pre-' : ''}release with tag #{tag_name} at #{release.html_url}#{release.body.nil? || release.body.empty? ? '' : " with body: #{release.body}"}"
           begin
-            release = git_client.update_release(release.url, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => true })
-            log.info "Updated pre-release #{release.id} at #{release.html_url} with body\n\n #{notes_str}"
+            release = git_client.update_release(release.url, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => config.prerelease })
+            log.info "Updated #{config.prerelease ? "prerelease" : "full release"} #{release.id} at #{release.html_url} with body\n\n #{notes_str}"
           rescue Octokit::NotFound
             raise "Unable to post release to github. Ensure your token has the right permissions."
           end
         rescue Octokit::NotFound
           # no existing release, so try create a new one for this end_tag
           begin
-            release = git_client.create_release(config.repo, tag_name, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => true })
-            log.info "Created pre-release #{release.id} at #{release.html_url} with body\n\n #{notes_str}"
+            release = git_client.create_release(config.repo, tag_name, { :name => tag_name, :body => notes_str, :draft => false, :prerelease => config.prerelease })
+            log.info "Created #{config.prerelease ? "prerelease" : "full release"} #{release.id} at #{release.html_url} with body\n\n #{notes_str}"
           rescue Octokit::NotFound
             raise "Unable to post release to github. Ensure your token has the right permissions."
           end
